@@ -46,7 +46,7 @@ double euclidean(double *x, double *y, int N) {
   for (i = 0; i < N; i++){
     d += (x[i] - y[i])*(x[i] - y[i]);
   }
-  return d;
+  return sqrt(d);
 }
 
 void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double tol, int nruns) {
