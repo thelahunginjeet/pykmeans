@@ -1,16 +1,5 @@
 #include "kmeans.h"
 
-/* remove this after debugging is finished */
-void printarray(double *X, int rows, int cols) {
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-        printf("%le ",X[i*cols + j]);
-    }
-    printf("\n");
-  }
-  return;
-}
-
 void choice_floyd(pcg32_random_t *rng, int *values, int M, int N) {
   /*
   Floyd's algorithm for returning a list of M random numbers in the range
@@ -49,10 +38,56 @@ double euclidean(double *x, double *y, int N) {
   return sqrt(d);
 }
 
-void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double tol, int nruns) {
+
+double manhattan(double *x, double *y, int N){
+  /* manhattan distance */
+  int i;
+  double d = 0;
+  for (i = 0; i < N; i++){
+    d += fabs(x[i] - y[i]);
+  }
+  return d;
+}
+
+
+double cosine(double *x, double *y, int N) {
+  /* cosine distance */
+  double d = 0.0;
+  double xnorm = 0.0;
+  double ynorm = 0.0;
+  for (int i = 0; i < N; i++) {
+    xnorm += x[i]*x[i];
+    ynorm += y[i]*y[i];
+    d += x[i]*y[i];
+  }
+  return 1.0 - d/(sqrt(xnorm)*sqrt(ynorm));
+}
+
+
+double correlation(double *x, double *y, int N){
+  /* correlation distance */
+  int i;
+  double SX = 0.0;
+  double SY = 0.0;
+  double SX2 = 0.0;
+  double SY2 = 0.0;
+  double SXY = 0.0;
+  for (i = 0; i < N; i++) {
+    SX += x[i];
+    SY += y[i];
+    SXY += x[i]*y[i];
+    SX2 += x[i]*x[i];
+    SY2 += y[i]*y[i];
+  }
+  double n = (double) N;
+  return 1.0 - (SXY - SX*SY/n)/(sqrt(SX2 - SX*SX/n)*sqrt(SY2 - SY*SY/n));
+}
+
+
+void kmeans(double *X, int N, int p, int metric, int *clusterids, int K, int init, double tol, int nruns) {
     /*
     kmeans algorithm, currently featuring:
-      +euclidean distance only
+      +choice of distance metric (careful when not using euclidean!)
       +initialization with random centers (init = 0)
       +returns best clustering result from nruns tries
       +printf for errors instead of error code return.
@@ -77,6 +112,23 @@ void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double to
 
     double minssqd = INFINITY;
 
+    // distance selection
+    double (*metricptr)(double *,double *,int);
+    if (metric == 0) {
+      // euclidean distance
+      metricptr = &euclidean;
+    } else if (metric == 1) {
+      // cosine distance
+      metricptr = &cosine;
+    } else if (metric == 2) {
+      // correlation distance
+      metricptr = &correlation;
+    } else {
+      // default to manhattan
+      metricptr = &manhattan;
+    }
+
+
     for (int irun = 0; irun < nruns; irun++) {
         centerchg = 1.0+tol;
 
@@ -97,10 +149,10 @@ void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double to
 
             /* find closest center */
             for (int i = 0; i < N; i++) {
-                odist = euclidean(&X[i*p],&oldCenters[0],p);
+                odist = metricptr(&X[i*p],&oldCenters[0],p);
                 labels[i] = 0;
                 for (int k = 0; k < K; k++) {
-                    ndist = euclidean(&X[i*p],&oldCenters[k*p],p);
+                    ndist = metricptr(&X[i*p],&oldCenters[k*p],p);
                     if (ndist < odist) {
                         odist = ndist;
                         labels[i] = k;
@@ -128,7 +180,7 @@ void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double to
             /* check to see if centers have changed enough to continue */
             centerchg = 0.0;
             for (int k = 0; k < K; k++) {
-                centerchg += euclidean(&newCenters[k*p],&oldCenters[k*p],p);
+                centerchg += metricptr(&newCenters[k*p],&oldCenters[k*p],p);
             }
             if (centerchg < tol) {
                 break;
@@ -145,7 +197,7 @@ void kmeans(double *X, int N, int p, int *clusterids, int K, int init, double to
     /* compute ssd and copy into clusterids in case this is the best run */
         ssqd = 0.0;
         for (int i = 0; i < N; i++) {
-            ssqd += euclidean(&X[i*p],&newCenters[labels[i]*p],p);
+            ssqd += metricptr(&X[i*p],&newCenters[labels[i]*p],p);
         }
         if (ssqd < minssqd) {
             minssqd = ssqd;
