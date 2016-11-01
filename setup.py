@@ -12,7 +12,9 @@ libkmeans = Extension("libkmeans",
                     sources = ["kmeans.c","pcg_basic.c"])
 
 setup(
-    name = 'wrapped C kmeans',
-    #cmdclass = {'build_ext':build_ext},
+    name = 'pykmeans',
+    packages = ['pykmeans'],
+    package_dir = {'pykmeans': ''},
+    ext_package = 'pykmeans',
     ext_modules = [libkmeans]
 )
