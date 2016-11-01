@@ -1,8 +1,13 @@
-import ctypes
+import ctypes,os
 from numpy import zeros
 from numpy.ctypeslib import ndpointer
 
-_kmeans = ctypes.CDLL('libkmeans.so')
+libpath = os.path.abspath(__file__)
+libpath = os.path.realpath(libpath)
+libpath = os.path.dirname(libpath)
+libpath = os.path.join(libpath,"libkmeans.so")
+
+_kmeans = ctypes.CDLL(libpath)
 _kmeans.kmeans.argtypes = (ndpointer(ctypes.c_double), ctypes.c_int, ctypes.c_int, ctypes.c_int, ndpointer(ctypes.c_int),
      ctypes.c_int, ctypes.c_int, ctypes.c_double, ctypes.c_int)
 
@@ -11,8 +16,13 @@ def kmeans(X,K=2,metric='euclidean',init='random',tol=1.0e-06,nruns=1):
     N = X.shape[0]
     p = X.shape[1]
     # initialization method
-    cinit = 0
+    cmet = 0
     if init is 'random':
+        cinit = 0
+    elif init is 'kpp':
+        cinit = 1
+    else:
+        print 'ERROR: Unsupported initialization method.  Defaulting to random.'
         cinit = 0
     clusterids = zeros(N,dtype=ctypes.c_int)
     # distance method
@@ -25,7 +35,7 @@ def kmeans(X,K=2,metric='euclidean',init='random',tol=1.0e-06,nruns=1):
         cmet = 2
     elif metric is 'manhattan':
         cmet = 3
-    else
+    else:
         print 'ERROR: Unsupported distance metric. Defaulting to euclidean.'
         cmet = 0
     # library call

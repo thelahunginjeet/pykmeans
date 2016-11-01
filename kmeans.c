@@ -27,6 +27,17 @@ void choice_floyd(pcg32_random_t *rng, int *values, int M, int N) {
   free(is_used);
 }
 
+int rand_cdf_index(pcg32_random_t *rng, double *cdf, int N) {
+    /* uniform random number between 0 and 1 */
+    double r = ldexp(pcg32_random_r(rng), -32);
+    for (int i = 0; i < N; i++){
+      if (r < cdf[i]) {
+        return i;
+      }
+    }
+    return 0;
+}
+
 
 double euclidean(double *x, double *y, int N) {
   /* euclidean (sum squared) distance */
@@ -88,7 +99,7 @@ void kmeans(double *X, int N, int p, int metric, int *clusterids, int K, int ini
     /*
     kmeans algorithm, currently featuring:
       +choice of distance metric (careful when not using euclidean!)
-      +initialization with random centers (init = 0)
+      +initialization with random centers (init = 0) or kmeans++ (init = 1)
       +returns best clustering result from nruns tries
       +printf for errors instead of error code return.
     function returns void but stores the best cluster assignments in clusterids
@@ -133,12 +144,48 @@ void kmeans(double *X, int N, int p, int metric, int *clusterids, int K, int ini
         centerchg = 1.0+tol;
 
         /* initialize cluster centers */
-        if(init == 0) {
-            choice_floyd(&rng,centerloc,K,N);
+        if (init == 0) {
+          /* random centers */
+          choice_floyd(&rng,centerloc,K,N);
+        } else if (init == 1){
+          /* kmeans++ */
+          /* holds pdf and cdf for point selection */
+          double *pdf = malloc(N*sizeof(double));
+          double *cdf = malloc(N*sizeof(double));
+          /* first center is chosen uniformly from the data (just ignore all
+            elements but centerloc[0] when we proceed) */
+          choice_floyd(&rng,centerloc,K,N);
+          /* now choose remaining centers */
+          for (int k = 1; k < K; k++){
+            /* compute center distances */
+            double sumDxsq = 0.0;
+            for (int d = 0; d < N; d ++) {
+                /* distance will be the minimum distance from the point to
+                  the closest center yet found */
+              double mindist = INFINITY;
+              for (int j = 0; j < k; j++){
+                mindist = fmin(mindist,metricptr(&X[d*p],&X[centerloc[j]*p],p));
+              }
+              pdf[d] = mindist*mindist;
+              sumDxsq += pdf[d];
+            }
+            /* compute cdf */
+            cdf[0] = pdf[0]/sumDxsq;
+            for (int d = 1; d < N; d++) {
+              cdf[d] = pdf[d]/sumDxsq + cdf[d-1];
+            }
+            /* now we have the probability vector; find the new center */
+            centerloc[k] = rand_cdf_index(&rng,cdf,N);
+          }
+          /* have the centers, free memory */
+          free(pdf);
+          free(cdf);
         } else {
-            printf("ERROR! Unknown initialization method.");
+          printf("ERROR! Unknown initialization method.");
         }
-        for (int i = 0; i < K; i ++) {
+
+
+        for (int i = 0; i < K; i++) {
             for (int j = 0; j < p; j++) {
                 oldCenters[i*p + j] = X[centerloc[i]*p + j];
             }
