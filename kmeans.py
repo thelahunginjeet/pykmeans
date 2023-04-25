@@ -22,7 +22,7 @@ def kmeans(X,K=2,metric='euclidean',init='random',tol=1.0e-06,nruns=1):
     elif init is 'kpp':
         cinit = 1
     else:
-        print 'ERROR: Unsupported initialization method.  Defaulting to random.'
+        print('ERROR: Unsupported initialization method.  Defaulting to random.')
         cinit = 0
     clusterids = zeros(N,dtype=ctypes.c_int)
     # distance method
@@ -36,7 +36,7 @@ def kmeans(X,K=2,metric='euclidean',init='random',tol=1.0e-06,nruns=1):
     elif metric is 'manhattan':
         cmet = 3
     else:
-        print 'ERROR: Unsupported distance metric. Defaulting to euclidean.'
+        print('ERROR: Unsupported distance metric. Defaulting to euclidean.')
         cmet = 0
     # library call
     _kmeans.kmeans(X.reshape(N*p,),ctypes.c_int(N),ctypes.c_int(p),ctypes.c_int(cmet),clusterids,ctypes.c_int(K),
